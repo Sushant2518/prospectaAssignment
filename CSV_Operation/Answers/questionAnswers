@@ -1,0 +1,28 @@
+1. How will you tackle the challenge above?
+	1)File Reading: 
+		Use MultipartFile's input stream with CSVReader and ByteArrayOutputStream.
+	2)Data Processing: 
+		Evaluate formulas and update cell values dynamically.
+	3)Output Generation: 
+		Write processed CSV to ByteArrayOutputStream.
+
+2. What type of errors you would you check for?
+	1)File Errors: 
+		Validate file type and handle read issues.
+	2)Parsing Errors: 
+		Manage invalid formulas and cell references.
+	3)Calculation Errors: 
+		Prevent division by zero and handle format issues.
+	4)Output Errors: 
+		Handle CSV writing exceptions.
+
+3. How might a user break your code?
+	1)Invalid File Types: 
+		Validate file extension and MIME type.
+	2)Malformed CSV Data: 
+		Check for parsing errors and data consistency.
+	3)Complex Formulas: 
+		Limit formula complexity and provide error messages.
+	4)Large Files: 
+		Set file size limits and optimize processing.
+

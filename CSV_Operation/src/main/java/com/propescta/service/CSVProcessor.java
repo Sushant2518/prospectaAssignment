@@ -3,65 +3,87 @@ package com.propescta.service;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVWriter;
 
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellValue;
-import org.apache.poi.ss.usermodel.FormulaEvaluator;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
 public class CSVProcessor {
+	private Map<String, Double> cellValues = new LinkedHashMap<>();
 
-    public void processCsv(File inputFile, File outputFile) throws Exception {
-        try (
-            FileReader fileReader = new FileReader(inputFile);
-            CSVReader csvReader = new CSVReader(fileReader);
-            FileWriter fileWriter = new FileWriter(outputFile);
-            CSVWriter csvWriter = new CSVWriter(fileWriter)
-        ) {
-            String[] nextLine;
-            
-            Workbook workbook = new HSSFWorkbook();
-            Sheet sheet = workbook.createSheet("Sheet1");
+	public ByteArrayOutputStream process(MultipartFile file) {
+		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-            int rowNum = 0;
-            while ((nextLine = csvReader.readNext()) != null) {
-                Row row = sheet.createRow(rowNum);
-                String[] outputRow = new String[nextLine.length];
+		try (CSVReader reader = new CSVReader(new BufferedReader(new InputStreamReader(file.getInputStream())));
+				CSVWriter writer = new CSVWriter(new OutputStreamWriter(outputStream))) {
+			
+			String[] nextLine;
+			int rowNumber = 1;
 
-                for (int colNum = 0; colNum < nextLine.length; colNum++) {
-                    Cell cell = row.createCell(colNum);
-                    String cellValue = nextLine[colNum];
-                    
-                    if (isFormula(cellValue)) {
-                        // Set cell formula and evaluate it
-                        cell.setCellFormula(cellValue.substring(1)); // Remove '=' before setting the formula
-                        FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
-                        CellValue evaluatedValue = evaluator.evaluate(cell);
-                        outputRow[colNum] = String.valueOf(evaluatedValue.getNumberValue());
-                    } else {
-                        // Direct number value
-                        double number = Double.parseDouble(cellValue);
-                        cell.setCellValue(number);
-                        outputRow[colNum] = cellValue;
-                    }
-                }
-                csvWriter.writeNext(outputRow);
-                rowNum++;
-            }
-            workbook.close();
-        }
-    }
+			while ((nextLine = reader.readNext()) != null) {
+				String[] processedRow = new String[nextLine.length]; 
+				for (int col = 0; col < nextLine.length; col++) {
+					String cellId = getCellId(rowNumber, col);
+					String cellValue = nextLine[col];
+					double value = processCell(cellValue);
+					cellValues.put(cellId, value);
+					processedRow[col] = String.valueOf(value);
+				}
+				writer.writeNext(processedRow);
+				rowNumber++;
+			}
+			writer.flush();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
-    private boolean isFormula(String value) {
-        return value.startsWith("=");
-    }
+		return outputStream;
+	}
+	
+	private double processCell(String cellValue) {
+		if (cellValue.startsWith("=")) {
+			return evaluateFormula(cellValue.substring(1)); 
+		} else {
+			return Double.parseDouble(cellValue); 
+		}
+	}
+
+	private double evaluateFormula(String formula) {
+		double result = 0;
+		if (formula.contains("+")) {
+			String[] operands = formula.split("\\+");
+			result = getValue(operands[0]) + getValue(operands[1]);
+		} else if (formula.contains("-")) {
+			String[] operands = formula.split("-");
+			result = getValue(operands[0]) - getValue(operands[1]);
+		} else if (formula.contains("*")) {
+			String[] operands = formula.split("\\*");
+			result = getValue(operands[0]) * getValue(operands[1]);
+		} else if (formula.contains("/")) {
+			String[] operands = formula.split("/");
+			result = getValue(operands[0]) / getValue(operands[1]);
+		}
+		return result;
+	}
+
+	
+	private double getValue(String cellReference) {
+		cellReference = cellReference.trim(); 
+		if (cellValues.containsKey(cellReference)) {
+			return cellValues.get(cellReference);
+		} else {
+			return Double.parseDouble(cellReference); 
+		}
+	}
+
+	private String getCellId(int row, int col) {
+		return (char) ('A' + col) + String.valueOf(row);
+	}
+    
 }
 
